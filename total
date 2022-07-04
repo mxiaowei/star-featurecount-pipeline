@@ -1,0 +1,76 @@
+###download data
+axel -n 100 https://sra-pub-run-odp.s3.amazonaws.com/sra/SRR5062112/SRR5062112 
+fasterq_dump -e 18 -p SRR*
+###compress data to *.gz fast speed
+pigz *
+##get encoding version of illumina sequencing
+awk 'NR % 4 == 0' SRR8131647.fastq | python guss-encoding.py 
+### Run Trim Galore! 
+trim_galore \
+--quality 20 \
+--fastqc \
+--length 25 \
+--gzip  \ ##input data format
+--output_dir ../trimmed/ \
+./*.fastq.gz
+### remove rrna contamination
+### step1 sormerna bulid index for known rrna from database
+sortmerna --index 1 
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-bac-16s-id90.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-bac-23s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-arc-16s-id95.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-arc-23s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-euk-18s-id95.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-euk-28s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/rfam-5s-database-id98.fasta \ 
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/rfam-5.8s-database-id98.fasta \
+--workdir ./ --threads 18
+
+###step2 use sormerna to map
+for i in *trimmed.fq.gz ; do sortmerna --index 0 \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-bac-16s-id90.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-bac-23s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-arc-16s-id95.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-arc-23s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-euk-18s-id95.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/silva-euk-28s-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/rfam-5s-database-id98.fasta \
+--ref ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/rRNA_databases/rfam-5.8s-database-id98.fasta \
+--workdir ./ \
+--threads 18 --reads $i --aligned "../$i_aligned.fq" --other "../$i_clean.fq" --fastx ;
+done
+rm ./kvdb/*  #########  keep kvdb files empty after every mapping step!!
+###repeat step1 above for multiple samples
+
+
+### star build index
+STAR --runMode genomeGenerate \
+        --genomeDir ~/index/star_index/ \
+        --runThreadN 17 \
+        --genomeFastaFiles ~/genomereference/ucsc/hg38.fa \
+        --sjdbGTFfile ~/genomereference/ucsc/promoter_filtered.gtf \
+        --sjdbOverhang 50 ### read length -1
+### star mapping
+STAR \
+--genomeDir ~/new/rna_seq_workflow/ercc/genome/ \
+--readFilesIn ~/new/rna_seq_workflow/sortmerna_db/sortmerna_db/SRR8131645_clean.fq.gz  \
+--runThreadN 17 \
+--outSAMtype BAM SortedByCoordinate \
+--readFilesCommand zcat \
+--outFileNamePrefix ./SRR8131645 \
+--quantMode GeneCounts     
+ 
+### get total reads of raw fastq file
+ cat SRR8131646.fastq | awk 'NR%4 == 2 {lengths[length($0)]++ ; counter++} END {for (l in lengths) {print l, lengths[l]}; print "total reads: " counter}'       
+        
+### get strand specific 
+infer_experiment.py -r hg38.bed -i input.bam  -q 20
+
+### feature count
+for i in `ls *.bam`
+do
+i=${i%.bam}
+featureCounts -T 16 -f -s 2 -t exon -g 'gene_id' -a ~/new/rna_seq_workflow/ercc/genome/promoter_ercc.gtf -o ../../featurecount/another_count/${i}.count ${i}.bam
+done
+
+
