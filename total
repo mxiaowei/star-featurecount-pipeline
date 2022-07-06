@@ -8,6 +8,7 @@ awk 'NR % 4 == 0' SRR8131647.fastq | python guss-encoding.py
 ### Run Trim Galore! 
 trim_galore \
 --quality 20 \
+ -j 18  \
 --fastqc \
 --length 25 \
 --gzip  \ ##input data format
