@@ -5,15 +5,8 @@ fasterq_dump -e 18 -p SRR*
 pigz *
 ##get encoding version of illumina sequencing
 awk 'NR % 4 == 0' SRR8131647.fastq | python guss-encoding.py 
-### Run Trim Galore! 
-trim_galore \
---quality 20 \
- -j 18  \
---fastqc \
---length 25 \
---gzip  \ ##input data format
---output_dir ../trimmed/ \
-./*.fastq.gz
+### Run Trim Galore! --gzip: input data format  --fastqc: do fastqc after trim
+trim_galore --quality 20 -j 18 --fastqc --length 25 --gzip --output_dir ../trimmed/ ./*.fastq.gz
 ### remove rrna contamination
 ### step1 sormerna bulid index for known rrna from database
 sortmerna --index 1 
