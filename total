@@ -67,4 +67,7 @@ i=${i%.bam}
 featureCounts -T 16 -f -s 2 -t exon -g 'gene_id' -a ~/new/rna_seq_workflow/ercc/genome/promoter_ercc.gtf -o ../../featurecount/another_count/${i}.count ${i}.bam
 done
 
+# compute reads length distribution from a fastq file
+awk 'NR%4 == 2 {lengths[length($0)]++} END {for (l in lengths) {print l, lengths[l]}}'  file.fastq
+
 
