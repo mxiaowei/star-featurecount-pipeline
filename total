@@ -64,7 +64,7 @@ infer_experiment.py -r hg38.bed -i input.bam  -q 20
 for i in `ls *.bam`
 do
 i=${i%.bam}
-featureCounts -T 16 -f -s 2 -t exon -g 'gene_id' -a ~/new/rna_seq_workflow/ercc/genome/promoter_ercc.gtf -o ../../featurecount/another_count/${i}.count ${i}.bam
+featureCounts -T 16 -f -s 2 -t exon -g 'gene_id' -a ~/prna_transcript_analysis/epd_new_promoter/filtered_epd.gtf -o ../../featurecount/another_count/${i}.count ${i}.bam
 done
 
 # compute reads length distribution from a fastq file
